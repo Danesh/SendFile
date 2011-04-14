@@ -32,27 +32,19 @@ import com.dropbox.client.DropboxAPI.FileDownload;
 
 public class DropboxSample extends Activity {
 	private static final String TAG = "DropboxSample";
-
-	// Replace this with your consumer key and secret assigned by Dropbox.
-	// Note that this is a really insecure way to do this, and you shouldn't
-	// ship code which contains your key & secret in such an obvious way.
-	// Obfuscation is good.
-	final static private String CONSUMER_KEY = "";
+    final static private String CONSUMER_KEY = "";
 	final static private String CONSUMER_SECRET = "";
-
 	private DropboxAPI api = new DropboxAPI();
-
 	final static public String ACCOUNT_PREFS_NAME = "prefs";
 	final static public String ACCESS_KEY_NAME = "ACCESS_KEY";
 	final static public String ACCESS_SECRET_NAME = "ACCESS_SECRET";
-
 	private boolean mLoggedIn;
 	private EditText mLoginEmail;
 	private EditText mLoginPassword;
 	private Button mSubmit;
 	private TextView mText;
 	private Config mConfig;
-
+	private String appname;
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -87,10 +79,6 @@ public class DropboxSample extends Activity {
 		if (authenticate()) {
 			DropboxAPI.Entry dbe = api.metadata("dropbox", "/Android", 10000, null, true);
 			List<Entry> contents = dbe.contents;
-			myfunc(contents);
-			File apk = new File("/sdcard/abc.apk");
-			try {apk.createNewFile();} catch (IOException e1) {}
-			try {downloadDropboxFile("/Android/abc.apk",apk);} catch (IOException e) {e.printStackTrace();}
 			int result = Settings.Secure.getInt(getContentResolver(), Settings.Secure.INSTALL_NON_MARKET_APPS, 0);
 			if (result == 0) {
 				showToast("Please enable unknown sources.");
@@ -98,35 +86,42 @@ public class DropboxSample extends Activity {
 				intent.setAction(Settings.ACTION_APPLICATION_SETTINGS);
 				startActivity(intent);
 			}else{
-				String fileName = Environment.getExternalStorageDirectory() + "/abc.apk";
-				Intent intent = new Intent(Intent.ACTION_VIEW);
-				intent.setDataAndType(Uri.fromFile(new File(fileName)), "application/vnd.android.package-archive");
-				//startActivity(intent);
+				listPop(contents);
 			}
 			//api.delete("dropbox", "/Android/abc.apk");
 		}
 	}
 
-	public void myfunc(List<Entry> pack){
+	public void listPop(List<Entry> pack){
 		final String[] dirlist = new String[pack.size()];
 		for (int a=0;a<pack.size();a++){
-			if (pack.get(a).fileName().endsWith("apk")) {
-				dirlist[a] = pack.get(a).fileName();
-			}else{
-				dirlist[a] = "Not apk";
-			}
-			
+			dirlist[a] = pack.get(a).fileName();
 		};
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		builder.setTitle("Pick an application");
 		builder.setItems(dirlist, new DialogInterface.OnClickListener(){
 			public void onClick(DialogInterface dialogInterface, int item) {
-						Toast.makeText(getApplicationContext(),dirlist[item], Toast.LENGTH_LONG).show();
-						return;
-					}});
+				if (dirlist[item].endsWith("apk")){
+					File apk = new File("/sdcard/" + dirlist[item]);
+					if (!apk.exists()){
+						try {apk.createNewFile();} catch (IOException e1) {}
+					}
+					try {downloadDropboxFile("/Android/" + dirlist[item],apk);} catch (IOException e) {e.printStackTrace();}
+					String fileName = Environment.getExternalStorageDirectory() + "/" + dirlist[item];
+					Intent intent = new Intent(Intent.ACTION_VIEW);
+					intent.setDataAndType(Uri.fromFile(new File(fileName)), "application/vnd.android.package-archive");
+					appname = dirlist[item];
+					startActivityForResult(intent,item);
+				}
+				return;
+			}});
 		builder.create().show();
 	}
-	
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+	    super.onActivityResult(requestCode, resultCode, data);
+	    showToast(appname);
+	}
 	private void downloadDropboxFile(String dbPath, File localFile) throws IOException {
 		BufferedInputStream br = null;
 		BufferedOutputStream bw = null;
