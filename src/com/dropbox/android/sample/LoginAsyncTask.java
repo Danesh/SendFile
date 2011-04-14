@@ -87,7 +87,8 @@ public class LoginAsyncTask extends AsyncTask<Void, Void, Integer> {
         	if (mConfig != null && mConfig.authStatus == DropboxAPI.STATUS_SUCCESS) {
             	mDropboxSample.storeKeys(mConfig.accessTokenKey, mConfig.accessTokenSecret);
             	mDropboxSample.setLoggedIn(true);
-            	mDropboxSample.showToast("Please restart app");
+            	mDropboxSample.restart();
+            	//mDropboxSample.showToast("Please restart app");
             }
         	if (mAccount != null) {
         		mDropboxSample.displayAccountInfo(mAccount);

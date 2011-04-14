@@ -8,10 +8,12 @@ import java.io.IOException;
 import java.util.List;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.content.pm.ApplicationInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -45,6 +47,7 @@ public class DropboxSample extends Activity {
 	private TextView mText;
 	private Config mConfig;
 	private String appname;
+	private ProgressDialog dialog;
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -54,6 +57,13 @@ public class DropboxSample extends Activity {
 		mLoginPassword = (EditText)findViewById(R.id.login_password);
 		mSubmit = (Button)findViewById(R.id.login_submit);
 		mText = (TextView)findViewById(R.id.text);
+		mLoginEmail.setText("");
+		mLoginPassword.setText("");
+		/*mLoginEmail.setVisibility(4);
+		mLoginPassword.setVisibility(4);
+		mSubmit.setVisibility(4);
+		mText.setVisibility(4);*/
+		mText.setVisibility(4);
 		mSubmit.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				if (mLoggedIn) {
@@ -91,27 +101,43 @@ public class DropboxSample extends Activity {
 			//api.delete("dropbox", "/Android/abc.apk");
 		}
 	}
+public void restart(){
+	 Intent mainIntent = new Intent(this, DropboxSample.class);
 
+	   mainIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP  );
+
+	   startActivity(mainIntent);
+
+	   finish();
+}
 	public void listPop(List<Entry> pack){
 		final String[] dirlist = new String[pack.size()];
 		for (int a=0;a<pack.size();a++){
 			dirlist[a] = pack.get(a).fileName();
 		};
+		dialog = new ProgressDialog(this);
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
 		builder.setTitle("Pick an application");
 		builder.setItems(dirlist, new DialogInterface.OnClickListener(){
-			public void onClick(DialogInterface dialogInterface, int item) {
+			public void onClick(DialogInterface dialogInterface, final int item) {
 				if (dirlist[item].endsWith("apk")){
-					File apk = new File("/sdcard/" + dirlist[item]);
-					if (!apk.exists()){
-						try {apk.createNewFile();} catch (IOException e1) {}
-					}
-					try {downloadDropboxFile("/Android/" + dirlist[item],apk);} catch (IOException e) {e.printStackTrace();}
-					String fileName = Environment.getExternalStorageDirectory() + "/" + dirlist[item];
-					Intent intent = new Intent(Intent.ACTION_VIEW);
-					intent.setDataAndType(Uri.fromFile(new File(fileName)), "application/vnd.android.package-archive");
-					appname = dirlist[item];
-					startActivityForResult(intent,item);
+					final File apk = new File("/sdcard/" + dirlist[item]);
+					dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+					dialog.setMessage("Loading Apps...");
+					dialog.setCancelable(false);
+					dialog.setMax((int) api.getFileStream("dropbox", "/Android/" + dirlist[item], null).length);
+					dialog.show();
+					Thread temp = new Thread(new Runnable() {
+						public void run() {
+							try {downloadDropboxFile("/Android/" + dirlist[item],apk);} catch (IOException e) {e.printStackTrace();}
+							dialog.cancel();
+							String fileName = Environment.getExternalStorageDirectory() + "/" + dirlist[item];
+							Intent intent = new Intent(Intent.ACTION_VIEW);
+							intent.setDataAndType(Uri.fromFile(new File(fileName)), "application/vnd.android.package-archive");
+							appname = dirlist[item];
+							startActivityForResult(intent,item);
+						}});
+					temp.start();
 				}
 				return;
 			}});
@@ -120,7 +146,8 @@ public class DropboxSample extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 	    super.onActivityResult(requestCode, resultCode, data);
-	    showToast(appname);
+	    File tmp = new File("/sdcard/"+appname);
+	    tmp.delete();
 	}
 	private void downloadDropboxFile(String dbPath, File localFile) throws IOException {
 		BufferedInputStream br = null;
@@ -128,17 +155,18 @@ public class DropboxSample extends Activity {
 		BufferedInputStream ttt = null;
 		try {
 			if (!localFile.exists()) {
-				localFile.createNewFile(); //otherwise dropbox client will fail silently
+				localFile.createNewFile();
 			}
-
 			FileDownload fd = api.getFileStream("dropbox", dbPath, null);
 			br = new BufferedInputStream(fd.is);
 			bw = new BufferedOutputStream(new FileOutputStream(localFile));
 
 			byte[] buffer = new byte[4096];
-			int read;
+			int read;int cc=0;
 			while (true) {
 				read = br.read(buffer);
+				dialog.setProgress((int) localFile.length());
+				cc++;
 				if (read <= 0) {
 					break;
 				}
@@ -238,7 +266,7 @@ public class DropboxSample extends Activity {
 				return true;
 			}
 		}
-		showToast("Please login.");
+		//showToast("Please login.");
 		clearKeys();
 		setLoggedIn(false);
 		return false;
