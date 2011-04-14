@@ -27,6 +27,7 @@ package com.dropbox.android.sample;
 import android.os.AsyncTask;
 import android.util.Log;
 
+import com.danesh.sendfile.R;
 import com.dropbox.client.DropboxAPI;
 
 
