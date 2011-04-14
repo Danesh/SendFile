@@ -23,7 +23,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-package com.dropbox.android.sample;
+package com.danesh.sendfile;
 import android.os.AsyncTask;
 import android.util.Log;
 
@@ -88,7 +88,6 @@ public class LoginAsyncTask extends AsyncTask<Void, Void, Integer> {
             	mDropboxSample.storeKeys(mConfig.accessTokenKey, mConfig.accessTokenSecret);
             	mDropboxSample.setLoggedIn(true);
             	mDropboxSample.restart();
-            	//mDropboxSample.showToast("Please restart app");
             }
         	if (mAccount != null) {
         		mDropboxSample.displayAccountInfo(mAccount);
