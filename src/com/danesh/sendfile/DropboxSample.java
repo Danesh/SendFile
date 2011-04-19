@@ -9,21 +9,25 @@ import java.util.List;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
+import android.graphics.PixelFormat;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 import com.danesh.sendfile.R;
 import com.dropbox.client.DropboxAPI;
@@ -33,22 +37,22 @@ import com.dropbox.client.DropboxAPI.FileDownload;
 
 
 public class DropboxSample extends Activity {
-	private static final String TAG = "DropboxSample";
-	final static private String CONSUMER_KEY = "";
-	final static private String CONSUMER_SECRET = "";
+
+	public static final String TAG = "DropboxSample";
+	private Button mSubmit,enable,disable,save;
+	Intent mine;
+	public String appname;
+	public ProgressDialog dialog;
+	final static public String CONSUMER_KEY = "";
+	final static public String CONSUMER_SECRET = "";
 	private DropboxAPI api = new DropboxAPI();
 	final static public String ACCOUNT_PREFS_NAME = "prefs";
 	final static public String ACCESS_KEY_NAME = "ACCESS_KEY";
 	final static public String ACCESS_SECRET_NAME = "ACCESS_SECRET";
 	private boolean mLoggedIn;
-	private EditText mLoginEmail;
-	private EditText mLoginPassword;
-	private Button mSubmit;
-	private TextView mText;
-	private Config mConfig;
-	private String appname;
-	private ProgressDialog dialog;
-	private String directory = "/tmp";
+	private EditText mLoginEmail, mLoginPassword, interval, folder;
+	public Config mConfig;
+
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -56,37 +60,80 @@ public class DropboxSample extends Activity {
 		setContentView(R.layout.main);
 		mLoginEmail = (EditText)findViewById(R.id.login_email);
 		mLoginPassword = (EditText)findViewById(R.id.login_password);
+		interval = (EditText)findViewById(R.id.interval);
+		folder = (EditText)findViewById(R.id.folder);
 		mSubmit = (Button)findViewById(R.id.login_submit);
-		mText = (TextView)findViewById(R.id.text);
-		mLoginEmail.setText("");
-		mLoginPassword.setText("");
-		mText.setVisibility(4);
+		enable = (Button)findViewById(R.id.enable);
+		disable = (Button)findViewById(R.id.disable);
+		save = (Button)findViewById(R.id.save);
+		SharedPreferences settings = getSharedPreferences("prefs", 0);
+		interval.setText(settings.getString("interval", "60"));
+		folder.setText(settings.getString("folder", "/send"));
+		mine = new Intent(this, LocalService.class);
 		mSubmit.setOnClickListener(new OnClickListener() {
 			public void onClick(View v) {
 				if (mLoggedIn) {
 					api.deauthenticate();
 					clearKeys();
 					setLoggedIn(false);
-					mText.setText("");
 				} else {
 					getAccountInfo();
 				}
 			}
 		});
+		save.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				SharedPreferences settings = getSharedPreferences("prefs", 0);
+				SharedPreferences.Editor editor = settings.edit();
+				editor.putString("folder",folder.getText().toString());
+				editor.putString("interval", interval.getText().toString());
+				showToast("Preferences Saved");
+				stopService(mine);
+				startService(mine);
+				editor.commit();
+			}
+		});
+		enable.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				startService(mine);
+			}
+		});
+		disable.setOnClickListener(new OnClickListener() {
+			public void onClick(View v) {
+				stopService(mine);
+			}
+		});
 		String[] keys = getKeys();
 		if (keys != null) {
 			setLoggedIn(true);
-
 		} else {
 			setLoggedIn(false);
 		}
 		if (authenticate()) {
-			DropboxAPI.Entry dbe = api.metadata("dropbox", "/tmp", 10000, null, true);
+			mSubmit.setEnabled(false);
+			enable.setEnabled(true);
+			disable.setEnabled(true);
+			Intent abc = getIntent();
+			String path = "'";
+			if (abc!=null)
+				if (abc.getExtras()!=null){
+					path = abc.getExtras().getString("status");
+				}
+			if (path.contains("1"))
+				initialize(folder.getText().toString());
+		}else{
+			mSubmit.setEnabled(true);
+			enable.setEnabled(false);
+			disable.setEnabled(false);
+		}
+
+	}
+
+	public void initialize(String path){
+		DropboxAPI.Entry dbe = api.metadata("dropbox", path, 10000, null, true);
+		if (dbe!=null){
 			List<Entry> contents = dbe.contents;
-			if (contents.size()==0){
-				finish();
-				showToast("No apps found");
-			}else{
+			if (contents!=null && contents.size()>0){
 				int result = Settings.Secure.getInt(getContentResolver(), Settings.Secure.INSTALL_NON_MARKET_APPS, 0);
 				if (result == 0) {
 					showToast("Please enable unknown sources.");
@@ -94,14 +141,13 @@ public class DropboxSample extends Activity {
 					intent.setAction(Settings.ACTION_APPLICATION_SETTINGS);
 					startActivity(intent);
 				}else{
-					setContentView(R.layout.popup);
 					listPop(contents);
 				}
 			}
 		}
 	}
 	public boolean isEmpty(){
-		DropboxAPI.Entry dbe = api.metadata("dropbox", directory, 10000, null, true);
+		DropboxAPI.Entry dbe = api.metadata("dropbox", folder.getText().toString(), 10000, null, true);
 		List<Entry> contents = dbe.contents;
 		if (contents==null){
 			return true;
@@ -110,7 +156,8 @@ public class DropboxSample extends Activity {
 		}
 	}
 	public void onBackPressed() {
-		android.os.Process.killProcess(android.os.Process.myPid());
+		finish();
+		//android.os.Process.killProcess(android.os.Process.myPid());
 		return;
 	}
 	public void restart(){
@@ -124,78 +171,54 @@ public class DropboxSample extends Activity {
 		for (int a=0;a<pack.size();a++){
 			dirlist[a] = pack.get(a).fileName();
 		};
-		dialog = new ProgressDialog(this);
 		if (dirlist.length>=1){
 			final File apk = new File("/sdcard/" + dirlist[0]);
-			dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-			dialog.setMessage("Loading Apps...");
-			dialog.setCancelable(false);
-			dialog.setMax((int) api.getFileStream("dropbox", directory + "/" + dirlist[0], null).length);
-			dialog.show();
+			displayNotification(1001,"Downloading App","Syncing...");
 			Thread temp = new Thread(new Runnable() {
 				public void run() {
-			try {downloadDropboxFile(directory + "/" + dirlist[0],apk);} catch (IOException e) {e.printStackTrace();}
-			String fileName = Environment.getExternalStorageDirectory() + "/" + dirlist[0];
-			Intent intent = new Intent(Intent.ACTION_VIEW);
-			intent.setDataAndType(Uri.fromFile(new File(fileName)), "application/vnd.android.package-archive");
-			appname = dirlist[0];
-			startActivityForResult(intent,dirlist.length);
+					try {downloadDropboxFile(folder.getText().toString() + "/" + dirlist[0],apk);} catch (IOException e) {e.printStackTrace();}
+					String fileName = Environment.getExternalStorageDirectory() + "/" + dirlist[0];
+					Intent intent = new Intent(Intent.ACTION_VIEW);
+					intent.setDataAndType(Uri.fromFile(new File(fileName)), "application/vnd.android.package-archive");
+					appname = dirlist[0];
+					startActivityForResult(intent,dirlist.length-1);
 				}});
 			temp.start();
-			return;
 		}else{
 			finish();
 		}
-		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setTitle("Pick an application");
-		builder.setOnCancelListener(new Dialog.OnCancelListener() {
-			public void onCancel(DialogInterface dialog) {
-				onBackPressed();
-			}
-		});
-		builder.setItems(dirlist, new DialogInterface.OnClickListener(){
-			public void onClick(DialogInterface dialogInterface, final int item) {
-				if (dirlist[item].endsWith("apk")){
-					final File apk = new File("/sdcard/" + dirlist[item]);
-					dialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-					dialog.setMessage("Loading Apps...");
-					dialog.setCancelable(false);
-					dialog.setMax((int) api.getFileStream("dropbox", directory + "/" + dirlist[item], null).length);
-					dialog.show();
-					Thread temp = new Thread(new Runnable() {
-						public void run() {
-							try {downloadDropboxFile(directory + "/" + dirlist[item],apk);} catch (IOException e) {e.printStackTrace();}
-							dialog.cancel();
-							String fileName = Environment.getExternalStorageDirectory() + "/" + dirlist[item];
-							Intent intent = new Intent(Intent.ACTION_VIEW);
-							intent.setDataAndType(Uri.fromFile(new File(fileName)), "application/vnd.android.package-archive");
-							appname = dirlist[item];
-							startActivityForResult(intent,item);
-						}});
-					temp.start();
-				}
-				return;
-			}});
-		builder.create().show();
 	}
+
+	public void displayNotification(int id, String ticker, String msg){
+		NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+		Notification notification1 = new Notification(R.drawable.icon, ticker, System.currentTimeMillis());
+		notification1.flags = Notification.FLAG_AUTO_CANCEL;
+		PendingIntent contentIntent = PendingIntent.getActivity(this, id, new Intent(this, DropboxSample.class), 0);
+		notification1.setLatestEventInfo(this, ticker, msg, contentIntent);
+		manager.notify(id, notification1);
+	}
+
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+		manager.cancelAll();
 		super.onActivityResult(requestCode, resultCode, data);
 		File tmp = new File("/sdcard/"+appname);
 		tmp.delete();
-		api.delete("dropbox", directory + "/" + appname);
-		if (requestCode>2){
-			DropboxAPI.Entry dbe = api.metadata("dropbox", "/tmp", 10000, null, true);
+		api.delete("dropbox", folder.getText().toString() + "/" + appname);
+		if (requestCode>0){
+			DropboxAPI.Entry dbe = api.metadata("dropbox", folder.getText().toString(), 10000, null, true);
 			List<Entry> contents = dbe.contents;
 			listPop(contents);
 		}else{
+			//stopService(mine);
+			startService(mine);
 			finish();
 		}
 	}
-	private void downloadDropboxFile(String dbPath, File localFile) throws IOException {
+	public void downloadDropboxFile(String dbPath, File localFile) throws IOException {
 		BufferedInputStream br = null;
 		BufferedOutputStream bw = null;
-		BufferedInputStream ttt = null;
 		try {
 			if (!localFile.exists()) {
 				localFile.createNewFile();
@@ -208,7 +231,6 @@ public class DropboxSample extends Activity {
 			int read;int cc=0;
 			while (true) {
 				read = br.read(buffer);
-				dialog.setProgress((int) localFile.length());
 				cc++;
 				if (read <= 0) {
 					break;
@@ -225,23 +247,16 @@ public class DropboxSample extends Activity {
 			}
 		}
 	}
-	/**
-	 * This lets us use the Dropbox API from the LoginAsyncTask
-	 */
+
 	public DropboxAPI getAPI() {
 		return api;
 	}
 
-	/**
-	 * Convenience function to change UI state based on being logged in
-	 */
 	public void setLoggedIn(boolean loggedIn) {
 		mLoggedIn = loggedIn;
 		mLoginEmail.setEnabled(!loggedIn);
 		mLoginPassword.setEnabled(!loggedIn);
-		if (loggedIn) {
-			mSubmit.setText("Log Out of Dropbox");
-		} else {
+		if (!loggedIn) {
 			mSubmit.setText("Log In to Dropbox");
 		}
 	}
@@ -251,53 +266,27 @@ public class DropboxSample extends Activity {
 		error.show();
 	}
 
-	private void getAccountInfo() {
+	public void getAccountInfo() {
 		if (api.isAuthenticated()) {
-			// If we're already authenticated, we don't need to get the login info
 			LoginAsyncTask login = new LoginAsyncTask(this, null, null, getConfig());
 			login.execute();    		
 		} else {
-
 			String email = mLoginEmail.getText().toString();
 			if (email.length() < 5 || email.indexOf("@") < 0 || email.indexOf(".") < 0) {
 				showToast("Error, invalid e-mail");
 				return;
 			}
-
 			String password = mLoginPassword.getText().toString();
 			if (password.length() < 6) {
 				showToast("Error, password too short");
 				return;
 			}
-
-			// It's good to do Dropbox API (and any web API) calls in a separate thread,
-			// so we don't get a force-close due to the UI thread stalling.
 			LoginAsyncTask login = new LoginAsyncTask(this, email, password, getConfig());
 			login.execute();
 		}
 	}
 
-	/**
-	 * Displays some useful info about the account, to demonstrate
-	 * that we've successfully logged in
-	 * @param account
-	 */
-	public void displayAccountInfo(DropboxAPI.Account account) {
-		if (account != null) {
-			String info = "Name: " + account.displayName + "\n" +
-			"E-mail: " + account.email + "\n" + 
-			"User ID: " + account.uid + "\n" +
-			"Quota: " + account.quotaQuota;
-			mText.setText(info);
-		}
-	}
-
-	/**
-	 * This handles authentication if the user's token & secret
-	 * are stored locally, so we don't have to store user-name & password
-	 * and re-send every time.
-	 */
-	protected boolean authenticate() {
+	public boolean authenticate() {
 		if (mConfig == null) {
 			mConfig = getConfig();
 		}
@@ -308,17 +297,14 @@ public class DropboxSample extends Activity {
 				return true;
 			}
 		}
-		//showToast("Please login.");
 		clearKeys();
 		setLoggedIn(false);
 		return false;
 	}
 
-	protected Config getConfig() {
+	public Config getConfig() {
 		if (mConfig == null) {
 			mConfig = api.getConfig(null, false);
-			// TODO On a production app which you distribute, your consumer
-			// key and secret should be obfuscated somehow.
 			mConfig.consumerKey=CONSUMER_KEY;
 			mConfig.consumerSecret=CONSUMER_SECRET;
 			mConfig.server="api.dropbox.com";
@@ -332,13 +318,6 @@ public class DropboxSample extends Activity {
 		mConfig = conf;
 	}
 
-	/**
-	 * Shows keeping the access keys returned from Trusted Authenticator in a local
-	 * store, rather than storing user name & password, and re-authenticating each
-	 * time (which is not to be done, ever).
-	 * 
-	 * @return Array of [access_key, access_secret], or null if none stored
-	 */
 	public String[] getKeys() {
 		SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
 		String key = prefs.getString(ACCESS_KEY_NAME, null);
@@ -349,18 +328,11 @@ public class DropboxSample extends Activity {
 			ret[1] = secret;
 			return ret;
 		} else {
-			showToast("HEY");
 			return null;
 		}
 	}
 
-	/**
-	 * Shows keeping the access keys returned from Trusted Authenticator in a local
-	 * store, rather than storing user name & password, and re-authenticating each
-	 * time (which is not to be done, ever).
-	 */
 	public void storeKeys(String key, String secret) {
-		// Save the access key for later
 		SharedPreferences prefs = getSharedPreferences(ACCOUNT_PREFS_NAME, 0);
 		Editor edit = prefs.edit();
 		edit.putString(ACCESS_KEY_NAME, key);

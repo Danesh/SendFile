@@ -3,7 +3,7 @@
       package="com.danesh.sendfile"
       android:versionCode="1"
       android:versionName="1.0">
-    <application android:theme="@android:style/Theme.Dialog" android:icon="@drawable/icon" android:label="SendApk">
+    <application android:theme="@android:style/Theme" android:icon="@drawable/icon" android:label="SendApk">
         <activity android:name=".DropboxSample"
                   android:label="SendApk"
                   android:configChanges="orientation|keyboard"
@@ -13,9 +13,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name=".LocalService" />
 	</application>
   <uses-sdk android:minSdkVersion="3" />
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-
+	
 </manifest> 

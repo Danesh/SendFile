@@ -89,9 +89,6 @@ public class LoginAsyncTask extends AsyncTask<Void, Void, Integer> {
             	mDropboxSample.setLoggedIn(true);
             	mDropboxSample.restart();
             }
-        	if (mAccount != null) {
-        		mDropboxSample.displayAccountInfo(mAccount);
-        	}
         } else {
         	if (result == DropboxAPI.STATUS_NETWORK_ERROR) {
         		mDropboxSample.showToast("Network error: " + mConfig.authDetail);

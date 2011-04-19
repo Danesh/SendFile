@@ -3,6 +3,7 @@
     android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
+	android:background="@drawable/popup"
     >
     <TextView
       android:text="Login"
@@ -34,11 +35,41 @@
       android:layout_width="fill_parent"
       android:layout_height="wrap_content"
       />
-	
-	<TextView  
-	  android:layout_width="fill_parent" 
-	  android:layout_height="wrap_content" 
-      android:id="@+id/text" 
-	  />
 <Button android:layout_height="wrap_content" android:layout_width="fill_parent" android:id="@+id/login_submit" android:text="Login to Dropbox"></Button>
+<LinearLayout android:orientation="horizontal"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content">
+<Button android:layout_height="wrap_content" android:layout_weight="1" android:layout_width="wrap_content" android:text="Enable Service" android:id="@+id/enable"></Button>
+<Button android:layout_height="wrap_content" android:layout_weight="1" android:layout_width="wrap_content" android:text="Disable Service" android:id="@+id/disable"></Button>
+</LinearLayout>
+<LinearLayout android:orientation="horizontal"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="3dp">
+<TextView android:layout_width="wrap_content" 
+	  android:layout_height="wrap_content" 
+	  android:text="Enter interval : "/>
+	   <EditText
+      android:id="@+id/interval"
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      />
+</LinearLayout>
+<LinearLayout android:orientation="horizontal"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content">
+<TextView android:layout_width="wrap_content" 
+	  android:layout_height="wrap_content" 
+	  android:text="Enter dropbox folder : "/>
+	   <EditText
+      android:id="@+id/folder"
+      android:layout_width="fill_parent"
+      android:layout_height="wrap_content"
+      />
+</LinearLayout>
+<Button android:layout_height="wrap_content" android:layout_width="fill_parent" android:text="Save Preferences" android:id="@+id/save"></Button>
+<TextView
+android:layout_width="fill_parent"
+android:layout_height="fill_parent"
+android:text="Changelog : \n First initial version, lots of bugs prolly :)"/>
 </LinearLayout>
